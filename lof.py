@@ -3,7 +3,8 @@
 from __future__ import division
 import warnings
 import copy
-
+import numpy as np
+import math
 
 
 def distance_euclidean(instance1, instance2):
@@ -46,10 +47,12 @@ def distance_euclidean(instance1, instance2):
 
 class LOF:
    
-    def __init__(self, instances, normalize=True, distance_function=distance_euclidean):
+    def __init__(self, instances, k_list, normalize=True, distance_function=distance_euclidean):
         self.instances = instances
+        self.k_list = k_list
         self.normalize = normalize
         self.distance_function = distance_function
+        #self.initialize_k_list()
         if normalize:
             self.normalize_instances()
 
@@ -85,6 +88,30 @@ class LOF:
         if self.normalize:
             instance = self.normalize_instance(instance)
         return local_outlier_factor(min_pts, instance, self.instances, distance_function=self.distance_function)
+    '''
+    def  initialize_k_list(self):
+        data_size = len(self.instances)
+        self.k_list = []
+        k = 2
+        while k <data_size:
+            self.k_list.append(k)
+            k*=2 ''' 
+    
+    def local_outlier_factor_kinf(self, instance):
+        if self.normalize:
+            instance = self.normalize_instance(instance)
+        return find_kinf(instance, self.instances, self.k_list, distance_function=self.distance_function)
+
+
+    def confidence(self,instance, k_inf, min_lof, lof_list):
+        #instances_without_instance = set(self.instances)
+
+        if self.normalize:
+            instance = self.normalize_instance(instance)
+
+        return confidence(instance,self.instances, k_inf, min_lof, lof_list, self.k_list)
+
+
 
 def k_distance(k, instance, instances, distance_function=distance_euclidean):
     distances = {}
@@ -97,7 +124,8 @@ def k_distance(k, instance, instances, distance_function=distance_euclidean):
         
     distances = sorted(distances.items())
     neighbours = []
-    [neighbours.extend(n[1]) for n in distances[:k]]
+    for n in distances[:k]:
+        neighbours.extend(n[1])
     k_distance_value = distances[k - 1][0] if len(distances) >= k else distances[-1][0]
     return k_distance_value, neighbours
 
@@ -123,7 +151,10 @@ def local_reachability_density(min_pts, instance, instances, **kwargs):
 def local_outlier_factor(min_pts, instance, instances, **kwargs):
 
     (k_distance_value, neighbours) = k_distance(min_pts, instance, instances, **kwargs)
-    instance_lrd = local_reachability_density(min_pts, instance, instances, **kwargs)
+    instances_without_instance = set(instances)
+    instances_without_instance.discard(instance)# kick instance itself out
+    instance_lrd = local_reachability_density(min_pts, instance, instances_without_instance, **kwargs)
+    #instance_lrd = local_reachability_density(min_pts, instance, instances, **kwargs)
     lrd_ratios_array = [0]* len(neighbours)
     for i, neighbour in enumerate(neighbours):
         instances_without_instance = set(instances)
@@ -132,27 +163,122 @@ def local_outlier_factor(min_pts, instance, instances, **kwargs):
         lrd_ratios_array[i] = neighbour_lrd / instance_lrd
     return sum(lrd_ratios_array) / len(neighbours)
 
- 
-def outliers(k,instances, candidate=None,**kwargs):
+def find_kinf(instance, instances, k_list, distance_function=distance_euclidean):
+    min_lof = float("inf")
+    k_inf = 2
+    lof_list = []
+    for k in k_list:
+        lof = local_outlier_factor(k, instance, instances, distance_function=distance_euclidean)
+        lof_list.append(lof)
+    min_lof = min(lof_list)
+    k_inf = k_list[lof_list.index(min_lof)]
+    return k_inf, min_lof, lof_list
+
+def confidence(instance,instances, k_inf, min_lof, lof_list, k_list):
+    instances_without_instance = copy.deepcopy(instances)
+    instances_without_instance.remove(instance)
+    (k_distance_value, neighbours) = k_distance(k_inf, instance, instances_without_instance, distance_function=distance_euclidean)
+
+    #confidence1
+    if k_list.index(k_inf) == (len(k_list)-1):# if k_inf is the last k in k list
+        confidence1 = 1
+    else:
+        confidence1 = lof_list[lof_list.index(min_lof)+1] / min_lof
+    
+    #confidence2 & confidence4
+    sum_c1_b = 0
+    sum_kb = 0
+    for neighbour in neighbours:
+        (k_inf_b, min_lof_b, lof_list_b) = find_kinf(neighbour, instances, k_list, distance_function=distance_euclidean)
+        if k_list.index(k_inf_b) == (len(k_list)-1):# if k_inf is the last k in k list
+            confidence1_b = 1
+        else:
+            confidence1_b = lof_list_b[lof_list_b.index(min_lof_b)+1] / min_lof_b
+        sum_c1_b += confidence1_b #confidence2
+        sum_kb += k_inf_b #confidence4
+    confidence2 = sum_c1_b / len(neighbours)
+    avg_kb = sum_kb / len(neighbour) #confidence4
+    confidence4 = math.exp((k_inf / avg_kb) - 1)
+
+    #confidence3
+    k_avg = math.floor((k_list[0] + k_inf) / 2)
+    if k_list.index(k_inf) == (len(k_list)-1):
+        #(kinfp1_distance_value, neighbours) = k_distance(k_inf, instance, instances_without_instance, **kwargs)
+        kinfp1_distance_value = k_distance_value
+    else:
+        (kinfp1_distance_value, neighbours_kp1) = k_distance(k_list[k_list.index(k_inf)+1], instance, instances_without_instance, distance_function=distance_euclidean)
+    (kavg_distance_value, neighbours_kavg) = k_distance(k_avg, instance, instances_without_instance, distance_function=distance_euclidean)
+    confidence3 = kinfp1_distance_value / kavg_distance_value
+
+    #confidence
+    confidence = (confidence1 * confidence2 * confidence3 * confidence4)**(1/4)
+    return confidence
+'''
+def outliers_fixed_k(k,instances, k_list, candidate=None,**kwargs):
     """Simple procedure to identify outliers in the dataset."""
     instances_value_backup = copy.deepcopy(instances)
     outliers = []
     if not candidate:
         candidate = instances
 
-    """ import k-means calucate outlier candidate dataset ClOF """
     l = LOF(instances, **kwargs)
     for i,instance in enumerate(candidate):
         #instance = tuple(instance) 
-        #instances_value_backup.remove(instance)
-        #l = LOF(instances_value_backup, **kwargs)
-        #instances_value_backup = copy.deepcopy(instances)
-        value = l.local_outlier_factor(k, instance)
+        value = l.local_outlier_factor(k,instance, k_list)
         if value > 1:
             outliers.append({"lof": value, "instance": instance, "index": instances.index(instance)})
     outliers.sort(key=lambda o: o["lof"], reverse=True)
     return outliers
+'''
+def outliers(instances, k_list, candidate=None,**kwargs):
+    """Simple procedure to identify outliers in the dataset."""
+    instances_value_backup = copy.deepcopy(instances)
+    outliers = []
+    if not candidate:
+        candidate = instances
 
+    l = LOF(instances, k_list, **kwargs)
+    for i,instance in enumerate(candidate):
+        #instance = tuple(instance) 
+        (k_inf, min_lof, lof_list) = l.local_outlier_factor_kinf(instance)
+        confidence = l.confidence(instance, k_inf, min_lof, lof_list)
+        if min_lof > 1:
+            outliers.append({"lof": min_lof, "instance": instance, "index": instances.index(instance), "k_inf": k_inf, "confidence": confidence})
+    outliers.sort(key=lambda o: o["confidence"], reverse=True)
+    return outliers
 
+def get_neighbours(k, instance, instances):
+    instances_without_instance = copy.deepcopy(instances)
+    instances_without_instance.remove(instance)
+    (value, neighbours) = k_distance(k, instance, instances_without_instance, distance_function=distance_euclidean)
+    return neighbours
 
+def refine_k_list(k_list, instances, category, benchmark):
+    size = len(category)
+    data_size = len(instances)
+    close_k = k_list[0]
+    min_value = float("inf")
+    for k in k_list: # find the k which is the closest to RC size 
+        if (k - size)**2 < min_value:
+            min_value = (k - size)**2
+            close_k = k
+    while abs(close_k - size) > benchmark: # insert k between previos k and RC size
+        close_k = int((close_k - size) / 2)
+        k_list. append(close_k)
+    new_k_list = []
+    print(data_size)
+    for k in k_list:# kick the k that is larger than Len(data)
+        print(k)
+        if k < data_size:
+            print(k,"is smaller")
+            new_k_list.append(k)
+    return new_k_list
 
+def initialize_k_list(instances):
+    data_size = len(instances)
+    k_list = []
+    k = 1
+    while k <data_size:
+        k_list.append(k)
+        k*=2
+    return k_list
