@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>RCDetection</title>
+    <script src="http://d3js.org/d3.v4.min.js" charset="utf-8"></script>
+
+    <style>
+	    body,html{
+			width:100%;
+			height:100%;
+			background-color: #212121;
+			color:white;
+			}
+		div{
+			position: absolute;
+			border-style: box;
+			border:1px solid;
+            border-color:#a1a1a1;
+			box-sizing:content-box;
+			margin: 0;
+		}
+		table
+        {
+            border-collapse: collapse;
+            margin: 0 auto;
+            text-align: center;
+            table-layout: fixed;
+            position: absolute;
+        }
+    	table td, table th
+        {
+            border: 1px solid #cad9ea;
+            color: white;
+            height: 25px;
+            width: 80px;
+            text-align: center;
+        }
+    	table th
+        {
+            width: 100px;
+            color:white;
+            background-color: #424242;
+            position: relative;
+    		top:expression(this.offsetParent.scrollTop-2);
+
+        }
+    	table tr:nth-child(odd)
+        {
+        	background: #696969;
+        }
+    	table tr:nth-child(even)
+        {
+            background: #696969;
+        }
+
+        .axis path {
+		    stroke: grey;
+		}
+        .axis line {
+		    fill: none;
+		    stroke: grey;
+		    shape-rendering: crispEdges;
+		}
+		.axis text {
+			stroke: grey;
+			fill:grey;
+		    font-size: 11px;
+		}
+
+
+        #category_expl{
+			width: 30%;
+			height: 100%;
+			left:0px;
+			top:0px;
+		}
+		#feature_expl{
+			width: 70%;
+			height: 75%;
+			left: 30%;
+			top:0px;
+		}
+		#data_expl{
+			width: 70%;
+			height: 25%;
+			top: 75%;
+			left:30%;
+		}
+
+        #submit_data{
+        	position:absolute;
+        	top:0px;
+        	left:0px;
+        	height: 25px;
+        }
+
+        #data_select{
+        	position:absolute;
+        	top:px;
+        	left:30px;
+        }
+
+        #category_scatterplot{
+        	width: 60%;
+        	height: 100%;
+        }
+
+	</style>
+
+</head>
+<body>
+	<div id = "category_expl" style="overflow: auto">
+        category explore view
+	</div>
+	<div id = "data_expl"  style="overflow: auto">
+		<button id = "submit_data" onclick="selected_data()">提交</button></th>
+			<table id = "data_select" >
+				<tr>
+					<th>
+						<input type = "checkbox" id = "select_all_data" onclick="selected_all_data(this)" />
+					</th>
+
+					<th>id</th>
+					<th>X</th>
+					<th>Y</th>
+				</tr>
+			</table>
+	</div>
+	<div id = "feature_expl" >
+		<div id = "category_scatterplot" style="overflow: auto">
+		</div>
+	</div>
+
+    <script>
+        var data = {{data|tojson}};
+        console.log (data);
+        raw_data = data.this;
+
+        var selected_data_instances = [];//data instanvces that selected by data table
+
+        show_data();
+		draw_category_scatterplot(raw_data);
+
+
+        function show_data(){
+        	//display all the raw data in the table
+	        for(var i=0;i < raw_data.length;i++){
+		        var x=document.getElementById('data_select').insertRow();//add row
+
+		        var checkBox=document.createElement("input");  //create check box
+				checkBox.setAttribute("type","checkbox");  
+				checkBox.setAttribute("id","data_instance"+String(i));
+				var cell=x.insertCell();
+                cell.append(checkBox);//add check box
+
+		        var cell=x.insertCell();
+                cell.innerHTML=i;//add id
+
+		        for(var j=0;j < raw_data[i].length;j++){
+		            var cell=x.insertCell();
+		            cell.innerHTML=raw_data[i][j];
+	        	}//add data
+	   		}
+        }
+
+        function selected_data(){
+        	//return the selected data
+        	for(var i = 0; i < raw_data.length; i++){
+        	    var id = "data_instance"+String(i);
+          		if(document.getElementById(id).checked){
+          			selected_data_instances.push(raw_data[i]);
+          		}
+        	}
+        	console.log(selected_data_instances);
+		}
+
+
+		function selected_all_data(checkbox){
+			//select all data
+			if ( checkbox.checked == true){
+		 	    for(var i = 0; i < raw_data.length; i++){
+        	    	var id = "data_instance"+String(i);
+          			document.getElementById(id).checked = true;
+          		}
+        	}//Action for checked
+		
+			else{
+				for(var i = 0; i < raw_data.length; i++){
+        	    	var id = "data_instance"+String(i);
+          			document.getElementById(id).checked = false;
+          		}
+          	}
+		}
+ 
+
+
+		function draw_category_scatterplot(data){
+			// set the dimensions and margins of the graph
+			var margin = {top: 10, right: 30, bottom: 30, left: 60},
+		    width = 460 - margin.left - margin.right,
+		    height = 450 - margin.top - margin.bottom;
+			// append the svg object to the body of the page
+			var svg = d3.select("#category_scatterplot")
+			  .append("svg")
+			    .attr("width", width + margin.left + margin.right)
+			    .attr("height", height + margin.top + margin.bottom)
+			  .append("g")
+			    .attr("transform",
+			          "translate(" + margin.left + "," + margin.top + ")");
+			
+			var x_min = 0;
+			var x_max = 100;
+			var y_min = 0;
+			var y_max = 100;
+			// Add X axis
+			var x = d3.scaleLinear()
+			    .domain([x_min, x_max])
+			    .range([ 0, width ]);
+			  svg.append("g")
+			  	.attr("class", "axis")
+			    .attr("transform", "translate(0," + height + ")")
+			    .call(d3.axisBottom(x));
+
+			// Add Y axis
+			var y = d3.scaleLinear()
+			    .domain([y_min, y_max])
+			    .range([ height, 0]);
+			  svg.append("g")
+			     .attr("class", "axis")
+			    .call(d3.axisLeft(y));
+
+			// Add a tooltip div. Here I define the general feature of the tooltip: stuff that do not depend on the data point.
+			// Its opacity is set to 0: we don't see it by default.
+			var tooltip = d3.select("#category_scatterplot")
+			    .append("div")
+			    .style("opacity", 0)
+			    .attr("class", "tooltip")
+			    .style("background-color", "#696969")
+			    .style("border", "solid")
+			    .style("border-width", "1px")
+			    .style("border-radius", "5px")
+			    .style("padding", "10px")
+
+			// A function that change this tooltip when the user hover a point.
+  			// Its opacity is set to 1: we can now see it. Plus it set the text and position of tooltip depending on the datapoint (d)
+			var mouseover = function(d) {
+			    tooltip
+			      .style("opacity", 1)
+			  }
+
+			var mousemove = function(d) {
+			    tooltip
+			      .html("The position of the data instance is X: " + d[0] + " Y: " + d[1] )
+			      .style("left", (d3.mouse(this)[0]+90) + "px") // It is important to put the +90: other wise the tooltip is exactly where the point is an it creates a weird effect
+			      .style("top", (d3.mouse(this)[1]) + "px")
+			  }
+
+			  // A function that change this tooltip when the leaves a point: just need to set opacity to 0 again
+			var mouseleave = function(d) {
+			    tooltip
+			      .transition()
+			      .duration(200)
+			      .style("opacity", 0)
+			  }
+
+			// Add dots
+			svg.append('g')
+			    .selectAll("dot")
+			    .data(data) // the .filter part is just to keep a few dots on the chart, not all of them
+			    .enter()
+			    .append("circle")
+			      .attr("cx", function (d) { return x(d[0]); } )
+			      .attr("cy", function (d) { return y(d[1]); } )
+			      .attr("r", 7)
+			      .style("fill", "#69b3a2")
+			      .style("opacity", 0.3)
+			      .style("stroke", "white")
+			    .on("mouseover", mouseover )
+			    .on("mousemove", mousemove )
+			    .on("mouseleave", mouseleave );
+
+
+
+		}
+
+
+</script>
+</body>
+</html>
+
