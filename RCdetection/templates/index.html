@@ -70,15 +70,15 @@
 
 
         #category_expl{
-			width: 30%;
-			height: 100%;
-			left:0px;
-			top:0px;
-		}
-		#feature_expl{
 			width: 70%;
 			height: 75%;
 			left: 30%;
+			top:0px;
+		}
+		#feature_expl{
+            width: 30%;
+			height: 100%;
+			left:0px;
 			top:0px;
 		}
 		#data_expl{
@@ -91,18 +91,40 @@
         #submit_data{
         	position:absolute;
         	top:0px;
-        	left:0px;
+        	left:420px;
         	height: 25px;
         }
 
         #data_select{
         	position:absolute;
-        	top:px;
-        	left:30px;
+        	top:0px;
+        	left:0px;
+        }
+
+        #feature_distribution{
+        	width: 100%;
+        	height: 40%;
+        }
+
+        #feature_variance{
+        	width: 100%;
+        	height: 20%;
+        	top: 40%;
+        }
+
+        #feature_subspace{
+        	width: 100%;
+        	height: 40%;
+        	top: 60%;
         }
 
         #category_scatterplot{
         	width: 60%;
+        	height: 100%;
+        }
+        #category_list{
+            left: 60%;
+        	width: 40%;
         	height: 100%;
         }
 
@@ -110,8 +132,11 @@
 
 </head>
 <body>
-	<div id = "category_expl" style="overflow: auto">
-        category explore view
+	<div id = "feature_expl" >
+		<div id = "feature_distribution" ></div>
+		<div id = "feature_variance" ></div>
+		<div id = "feature_subspace" ></div>
+       
 	</div>
 	<div id = "data_expl"  style="overflow: auto">
 		<button id = "submit_data" onclick="selected_data()">提交</button></th>
@@ -127,20 +152,30 @@
 				</tr>
 			</table>
 	</div>
-	<div id = "feature_expl" >
-		<div id = "category_scatterplot" style="overflow: auto">
-		</div>
+	<div id = "category_expl" >
+		<div id = "category_scatterplot" style="overflow: auto"></div>
+        <div id = "category_list" style="overflow: auto">  category list</div>
 	</div>
 
     <script>
         var data = {{data|tojson}};
         console.log (data);
-        raw_data = data.this;
+        raw_data = data.raw_data;
+        feature_position = data.feature_position;
+        feature_position_min = data.feature_position_min;
+        feature_position_max = data.feature_position_max;
+        feature_variance = data.feature_variance;
+        feature_name = data.feature_name;
+        data_position = data.data_position;
+        data_position_min = data.data_position_min;
+        data_position_max = data.data_position_max;
+
 
         var selected_data_instances = [];//data instanvces that selected by data table
 
         show_data();
-		draw_category_scatterplot(raw_data);
+        draw_category_scatterplot(data_position);
+        draw_feature_distribution(feature_position);
 
 
         function show_data(){
@@ -165,6 +200,8 @@
         }
 
         function selected_data(){
+        	console.log("selected");
+        	selected_data_instances = [];
         	//return the selected data
         	for(var i = 0; i < raw_data.length; i++){
         	    var id = "data_instance"+String(i);
@@ -173,6 +210,7 @@
           		}
         	}
         	console.log(selected_data_instances);
+        	draw_category_scatterplot(selected_data_instances);
 		}
 
 
@@ -201,6 +239,7 @@
 		    width = 460 - margin.left - margin.right,
 		    height = 450 - margin.top - margin.bottom;
 			// append the svg object to the body of the page
+			d3.select("#category_scatterplot").select("svg").remove();
 			var svg = d3.select("#category_scatterplot")
 			  .append("svg")
 			    .attr("width", width + margin.left + margin.right)
@@ -209,10 +248,10 @@
 			    .attr("transform",
 			          "translate(" + margin.left + "," + margin.top + ")");
 			
-			var x_min = 0;
-			var x_max = 100;
-			var y_min = 0;
-			var y_max = 100;
+			var x_min = data_position_min[0];
+			var x_max = data_position_max[0];
+			var y_min = data_position_min[1];
+			var y_max = data_position_max[1];
 			// Add X axis
 			var x = d3.scaleLinear()
 			    .domain([x_min, x_max])
@@ -233,6 +272,100 @@
 			// Add a tooltip div. Here I define the general feature of the tooltip: stuff that do not depend on the data point.
 			// Its opacity is set to 0: we don't see it by default.
 			var tooltip = d3.select("#category_scatterplot")
+			    .append("div")
+			    .style("opacity", 0)
+			    .attr("class", "tooltip")
+			    .style("background-color", "#696969")
+			    .style("border", "solid")
+			    .style("border-width", "1px")
+			    .style("border-radius", "5px")
+			    .style("padding", "10px")
+			    .style("width","120px")
+			    .style("height","200px")
+
+			// A function that change this tooltip when the user hover a point.
+  			// Its opacity is set to 1: we can now see it. Plus it set the text and position of tooltip depending on the datapoint (d)
+			var mouseover = function(d) {
+			    tooltip
+			      .style("opacity", 0.8)
+			  }
+
+			var mousemove = function(d) {
+				var id = d[2];
+				console.log(id);
+				feature_number = feature_name.length;
+				var text = "Instance detail:<br/>";
+				for (var i = 0; i < feature_number; i++){
+					text = text.concat(feature_name[i] , ":" , raw_data[id][i],"<br/>");
+				}
+				console.log(text);
+				//"The position of the data instance is X: " + d[0] + " Y: " + d[1] 
+				//(d3.mouse(this)[0]+90) + "px"
+			    tooltip
+			      .html(text)
+			      .style("right", "5px") // It is important to put the +90: other wise the tooltip is exactly where the point is an it creates a weird effect
+			      .style("top", "5px")
+			  }
+
+			  // A function that change this tooltip when the leaves a point: just need to set opacity to 0 again
+			var mouseleave = function(d) {
+			    tooltip
+			      .transition()
+			      .duration(200)
+			      .style("opacity", 0)
+			  }
+
+			// Add dots
+			svg.append('g')
+			    .selectAll("dot")
+			    .data(data) // the .filter part is just to keep a few dots on the chart, not all of them
+			    .enter()
+			    .append("circle")
+			      .attr("cx", function (d) { return x(d[0]); } )
+			      .attr("cy", function (d) { return y(d[1]); } )
+			      .attr("r", 7)
+			      .style("fill", "#69b3a2")
+			      .style("opacity", 0.8)
+			      .style("stroke", "white")
+			    .on("mouseover", mouseover )
+			    .on("mousemove", mousemove )
+			    .on("mouseleave", mouseleave );
+
+			console.log("draw finish");
+		}
+
+		function draw_feature_distribution(data){
+			// set the dimensions and margins of the graph
+			var margin = {top: 10, right: 30, bottom: 30, left: 60},
+		    width = 350 - margin.left - margin.right,
+		    height = 220 - margin.top - margin.bottom;
+			// append the svg object to the body of the page
+			d3.select("#feature_distribution").select("svg").remove();
+			var svg = d3.select("#feature_distribution")
+			  .append("svg")
+			    .attr("width", width + margin.left + margin.right)
+			    .attr("height", height + margin.top + margin.bottom)
+			  .append("g")
+			    .attr("transform",
+			          "translate(" + margin.left + "," + margin.top + ")");
+			
+			var x_min = feature_position_min[0];
+			var x_max = Math.max(feature_position_max[0], x_min+1);
+			var y_min = feature_position_min[1];
+			var y_max = Math.max(feature_position_max[1], y_min+1);
+			// Add X axis
+			var x = d3.scaleLinear()
+			    .domain([x_min, x_max])
+			    .range([ 0, width ]);
+
+			// Add Y axis
+			var y = d3.scaleLinear()
+			    .domain([y_min, y_max])
+			    .range([ height, 0]);
+
+			// Add a tooltip div. Here I define the general feature of the tooltip: stuff that do not depend on the data point.
+			// Its opacity is set to 0: we don't see it by default.
+			var tooltip = d3.select("#feature_distribution")
 			    .append("div")
 			    .style("opacity", 0)
 			    .attr("class", "tooltip")
@@ -269,20 +402,20 @@
 			    .selectAll("dot")
 			    .data(data) // the .filter part is just to keep a few dots on the chart, not all of them
 			    .enter()
-			    .append("circle")
-			      .attr("cx", function (d) { return x(d[0]); } )
-			      .attr("cy", function (d) { return y(d[1]); } )
-			      .attr("r", 7)
-			      .style("fill", "#69b3a2")
-			      .style("opacity", 0.3)
+			    .append("rect")
+			      .attr("x", function (d) { return x(d[0]); } )
+			      .attr("y", function (d) { return y(d[1]); } )
+			      .attr("width", 7)
+			      .attr("height", 7)
+			      .style("fill", "#ffff00")
+			      .style("opacity", 0.8)
 			      .style("stroke", "white")
 			    .on("mouseover", mouseover )
 			    .on("mousemove", mousemove )
 			    .on("mouseleave", mouseleave );
 
-
-
 		}
+
 
 
 </script>
