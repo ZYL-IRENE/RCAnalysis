@@ -241,8 +241,8 @@ def outliers(instances, k_list, candidate=None,**kwargs):
     for i,instance in enumerate(candidate):
         #instance = tuple(instance) 
         (k_inf, min_lof, lof_list) = l.local_outlier_factor_kinf(instance)
-        confidence = l.confidence(instance, k_inf, min_lof, lof_list)
         if min_lof > 1:
+            confidence = l.confidence(instance, k_inf, min_lof, lof_list)
             outliers.append({"lof": min_lof, "instance": instance, "index": instances.index(instance), "k_inf": k_inf, "confidence": confidence})
     outliers.sort(key=lambda o: o["confidence"], reverse=True)
     return outliers
@@ -266,18 +266,17 @@ def refine_k_list(k_list, instances, category, benchmark):
         close_k = int((close_k - size) / 2)
         k_list. append(close_k)
     new_k_list = []
-    print(data_size)
+    #print(data_size)
     for k in k_list:# kick the k that is larger than Len(data)
-        print(k)
-        if k < data_size:
-            print(k,"is smaller")
+        #print(k)
+        if k < data_size and k > 1:
             new_k_list.append(k)
     return new_k_list
 
 def initialize_k_list(instances):
     data_size = len(instances)
     k_list = []
-    k = 1
+    k = 2
     while k <data_size:
         k_list.append(k)
         k*=2
