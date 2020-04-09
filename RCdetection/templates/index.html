@@ -32,7 +32,7 @@
         {
             border: 1px solid #cad9ea;
             color: white;
-            height: 25px;
+            height: 20px;
             width: 80px;
             text-align: center;
         }
@@ -91,13 +91,13 @@
         #submit_data{
         	position:absolute;
         	top:0px;
-        	left:420px;
-        	height: 25px;
+        	left:0px;
+        	height: 20px;
         }
 
         #data_select{
         	position:absolute;
-        	top:0px;
+        	top:20px;
         	left:0px;
         }
 
@@ -141,14 +141,13 @@
 	<div id = "data_expl"  style="overflow: auto">
 		<button id = "submit_data" onclick="selected_data()">提交</button></th>
 			<table id = "data_select" >
-				<tr>
+				<tr id = "data_title">
 					<th>
 						<input type = "checkbox" id = "select_all_data" onclick="selected_all_data(this)" />
 					</th>
 
 					<th>id</th>
-					<th>X</th>
-					<th>Y</th>
+
 				</tr>
 			</table>
 	</div>
@@ -176,9 +175,18 @@
         show_data();
         draw_category_scatterplot(data_position);
         draw_feature_distribution(feature_position);
+        draw_feature_variance(feature_variance);
 
 
         function show_data(){
+
+            var tr = document.getElementById('data_title');
+            for(var i = 0; i < feature_name.length; i++){
+            	var th = document.createElement("th");
+		        th.innerHTML = feature_name[i];
+		        tr.appendChild (th);
+            }
+
         	//display all the raw data in the table
 	        for(var i=0;i < raw_data.length;i++){
 		        var x=document.getElementById('data_select').insertRow();//add row
@@ -203,10 +211,10 @@
         	console.log("selected");
         	selected_data_instances = [];
         	//return the selected data
-        	for(var i = 0; i < raw_data.length; i++){
+        	for(var i = 0; i < data_position.length; i++){
         	    var id = "data_instance"+String(i);
           		if(document.getElementById(id).checked){
-          			selected_data_instances.push(raw_data[i]);
+          			selected_data_instances.push(data_position[i]);
           		}
         	}
         	console.log(selected_data_instances);
@@ -231,7 +239,6 @@
           	}
 		}
  
-
 
 		function draw_category_scatterplot(data){
 			// set the dimensions and margins of the graph
@@ -288,17 +295,30 @@
 			var mouseover = function(d) {
 			    tooltip
 			      .style("opacity", 0.8)
-			  }
-
-			var mousemove = function(d) {
-				var id = d[2];
-				console.log(id);
+			      .style("height","200px")
+			    var id = d[2];
 				feature_number = feature_name.length;
 				var text = "Instance detail:<br/>";
 				for (var i = 0; i < feature_number; i++){
 					text = text.concat(feature_name[i] , ":" , raw_data[id][i],"<br/>");
 				}
-				console.log(text);
+				//console.log(text);
+				//"The position of the data instance is X: " + d[0] + " Y: " + d[1] 
+				//(d3.mouse(this)[0]+90) + "px"
+			    tooltip
+			      .html(text)
+			      .style("right", "5px") // It is important to put the +90: other wise the tooltip is exactly where the point is an it creates a weird effect
+			      .style("top", "5px")
+			  }
+
+			var mousemove = function(d) {
+				var id = d[2];
+				feature_number = feature_name.length;
+				var text = "Instance detail:<br/>";
+				for (var i = 0; i < feature_number; i++){
+					text = text.concat(feature_name[i] , ":" , raw_data[id][i],"<br/>");
+				}
+				//console.log(text);
 				//"The position of the data instance is X: " + d[0] + " Y: " + d[1] 
 				//(d3.mouse(this)[0]+90) + "px"
 			    tooltip
@@ -310,9 +330,8 @@
 			  // A function that change this tooltip when the leaves a point: just need to set opacity to 0 again
 			var mouseleave = function(d) {
 			    tooltip
-			      .transition()
-			      .duration(200)
 			      .style("opacity", 0)
+			      .style("height","1px")
 			  }
 
 			// Add dots
@@ -350,9 +369,9 @@
 			          "translate(" + margin.left + "," + margin.top + ")");
 			
 			var x_min = feature_position_min[0];
-			var x_max = Math.max(feature_position_max[0], x_min+1);
+			var x_max = feature_position_max[0];
 			var y_min = feature_position_min[1];
-			var y_max = Math.max(feature_position_max[1], y_min+1);
+			var y_max = feature_position_max[1];
 			// Add X axis
 			var x = d3.scaleLinear()
 			    .domain([x_min, x_max])
@@ -414,6 +433,97 @@
 			    .on("mousemove", mousemove )
 			    .on("mouseleave", mouseleave );
 
+		}
+
+		function draw_feature_variance(data){
+			// set the dimensions and margins of the graph
+			var margin = {top: 15, right: 20, bottom: 20, left: 30},
+			    width = 350 - margin.left - margin.right,
+			    height = 110 - margin.top - margin.bottom;
+
+			// append the svg object to the body of the page
+			var svg = d3.select("#feature_variance")
+			  .append("svg")
+			    .attr("width", width + margin.left + margin.right)
+			    .attr("height", height + margin.top + margin.bottom)
+			  .append("g")
+			    .attr("transform",
+			          "translate(" + margin.left + "," + margin.top + ")");
+
+			 
+			  // X axis: scale and draw:
+			  var x = d3.scaleBand()
+			      .domain(feature_name)     // can use this instead of 1000 to have the max of data: d3.max(data, function(d) { return +d.price })
+			      .range([0, width]);
+			  svg.append("g")
+			      .attr("transform", "translate(0," + height + ")")
+			      .attr("class", "axis")
+			      .call(d3.axisBottom(x));
+
+			      /*
+			  // set the parameters for the histogram
+			  var histogram = d3.histogram()
+			      .value(function(d) { return d; })   // I need to give the vector of value
+			      .domain(x.domain())  // then the domain of the graphic
+			      .thresholds(x.ticks(70)); // then the numbers of bins
+
+			  // And apply this function to data to get the bins
+			  var bins = histogram(data);
+				*/
+			  // Y axis: scale and draw:
+			  var y = d3.scaleLinear()
+			      .range([height, 0]);
+			      y.domain([0, d3.max(data)]);   // d3.hist has to be called before the Y axis obviously
+			  /*svg.append("g")
+			  	  .attr("class", "axis")
+			      .call(d3.axisLeft(y));*/
+
+			  var tooltip = d3.select("#feature_variance")
+			    .append("div")
+			    .style("opacity", 0)
+			    .attr("class", "tooltip")
+			    .style("background-color", "#696969")
+			    .style("border-radius", "5px")
+			    .style("padding", "10px")
+
+			  var showTooltip = function(d) {
+			    tooltip
+			      .style("opacity", 1)
+			    tooltip
+			      .html("variance: " + d)
+			      .style("left", (d3.mouse(this)[0]+40) + "px")
+			      .style("top", (d3.mouse(this)[1]) + "px")
+			     console.log("here");
+			  }
+			  var moveTooltip = function(d) {
+			    tooltip
+			    .style("left", (d3.mouse(this)[0]+40) + "px")
+			    .style("top", (d3.mouse(this)[1]) + "px")
+			  }
+			  // A function that change this tooltip when the leaves a point: just need to set opacity to 0 again
+			  var hideTooltip = function(d) {
+			    tooltip
+			      .transition()
+			      .duration(100)
+			      .style("opacity", 0)
+			  }
+
+			  // append the bar rectangles to the svg element
+			  var rectMargin = 7;
+			  svg.selectAll("rect")
+			      .data(data)
+			      .enter()
+			      .append("rect")
+			        .attr("x", function(d,i){return x(feature_name[i]) + rectMargin;})
+			        .attr("y",function(d,i){return y(d);})
+			        .attr("width", function(d) { return x(feature_name[1]) - x(feature_name[0]) -2*rectMargin ; })
+			        .attr("height", function(d) { return height - y(d); })
+			        .style("fill", "#69b3a2")
+			        // Show tooltip on hover
+			        .on("mouseover", showTooltip )
+			        .on("mousemove", moveTooltip )
+			        .on("mouseleave", hideTooltip )
+			        //.attr("transform", function(d) { return "translate(" + x(d.x0) + "," + y(d.length) + ")"; })
 		}
 
 
