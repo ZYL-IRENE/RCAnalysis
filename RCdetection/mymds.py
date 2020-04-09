@@ -27,6 +27,17 @@ class MyMDS:
         Z=V_selected.dot(diag_lamda)
         return Z
 
+    def fit_distance(self,data):
+        m,n=data.shape
+        B=data
+        lamda,V=np.linalg.eigh(B)
+        index=np.argsort(-lamda)[:self.n_components]
+        diag_lamda=np.sqrt(np.diag(-np.sort(-lamda)[:self.n_components]))
+        V_selected=V[:,index]
+        Z=V_selected.dot(diag_lamda)
+        return Z
+
+
 def get_position(data,d):
     data = np.array(data)
     clf1 = MyMDS(d)

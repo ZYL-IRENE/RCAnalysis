@@ -9,10 +9,10 @@ def feature_analysis(data):
     data_array = np.array(data)
     #feature  correlations
     feature_cor = np.corrcoef(data_array.T) 
-    feature_distance = 1-feature_cor
+    feature_distance = 1-abs(feature_cor)
     #MDS feature position 
     clf1 = mymds.MyMDS(2)
-    feature_position = clf1.fit(feature_distance)
+    feature_position = clf1.fit_distance(feature_distance)
     feature_position = feature_position.tolist()
     # min and max of feature position
     min_x = float("inf")
