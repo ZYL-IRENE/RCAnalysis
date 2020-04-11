@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>RCDetection</title>
     <script src="http://d3js.org/d3.v4.min.js" charset="utf-8"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.js">  </script>
 
     <style>
 	    body,html{
@@ -66,6 +67,28 @@
 			stroke: grey;
 			fill:grey;
 		    font-size: 11px;
+		}
+		.category{
+			width: 96%;
+			left:2%;
+			height:120px;
+			margin-top:5px;
+			position: relative;
+		}
+		.category_text{
+			border-style: none;
+			font-size:12px;
+		}
+
+		.webs{
+			fill:gray;
+			fill-opacity:0.5;
+			stroke:white;
+			stroke-dasharray: 10 5;
+		}
+		.line{
+			stroke:white;
+			stroke-dasharray: 10 5;
 		}
 
 
@@ -153,7 +176,7 @@
 	</div>
 	<div id = "category_expl" >
 		<div id = "category_scatterplot" style="overflow: auto"></div>
-        <div id = "category_list" style="overflow: auto">  category list</div>
+        <div id = "category_list" style="overflow: auto">  </div>
 	</div>
 
     <script>
@@ -168,6 +191,7 @@
         data_position = data.data_position;
         data_position_min = data.data_position_min;
         data_position_max = data.data_position_max;
+        category_mean = data.category_mean;
 
 
         var selected_data_instances = [];//data instanvces that selected by data table
@@ -176,6 +200,8 @@
         draw_category_scatterplot(data_position);
         draw_feature_distribution(feature_position);
         draw_feature_variance(feature_variance);
+        draw_feature_subspace(feature_variance);
+        draw_category_mean(category_mean);
 
 
         function show_data(){
@@ -219,6 +245,50 @@
         	}
         	console.log(selected_data_instances);
         	draw_category_scatterplot(selected_data_instances);
+
+        	/*var json_data = JSON.stringify(
+	    	{
+	    		"data":selected_data_instances
+	    	});
+
+	        $.ajax(
+	    	{
+	    		type:'POST',
+	    		async: false,
+	    		url:'http://localhost:5000/index',
+	    		data:{"data" : [1,2]},
+	    		dataType:'json',
+	    		contentType:'application/json',
+	    		success:function(data){
+	    			//alert("Add Successfully!")
+	    			console.log("SUCCESS!");
+	    		},
+	    		error: function (xhr, textStatus, errorThrown) {
+		            
+		　　　　　　　　alert("进入error---");
+		　　　　　　　　alert("状态码："+xhr.status);
+		　　　　　　　　alert("状态:"+xhr.readyState);//当前状态,0-未初始化，1-正在载入，2-已经载入，3-数据进行交互，4-完成。
+		　　　　　　　　alert("错误信息:"+xhr.statusText );
+		　　　　　　　　alert("返回响应信息："+xhr.responseText );//这里是详细的信息
+		　　　　　　　　alert("请求状态："+textStatus); 　　　　　　　　
+		　　　　　　　　alert(errorThrown); 　　　　　　　　
+		　　　　　　　　alert("请求失败"); 
+		　　　　} 
+	    		
+	    	});
+	    	var next = window.location.href;
+	        window.location.href = next;*/
+
+
+	        $.ajax({
+                url: "/index",   //对应flask中的路由
+                type: "POST", //请求方法
+                data: 'hello',   //传送的数据
+                dataType: "json", //传送的数据类型
+                success: function (data) {  //成功得到返回数据后回调的函数
+                    console.log("SUCCESS!")
+                } 
+            });
 		}
 
 
@@ -342,7 +412,7 @@
 			    .append("circle")
 			      .attr("cx", function (d) { return x(d[0]); } )
 			      .attr("cy", function (d) { return y(d[1]); } )
-			      .attr("r", 7)
+			      .attr("r", 4)
 			      .style("fill", "#69b3a2")
 			      .style("opacity", 0.8)
 			      .style("stroke", "white")
@@ -401,9 +471,9 @@
 			      .style("opacity", 1)
 			  }
 
-			var mousemove = function(d) {
+			var mousemove = function(d,i) {
 			    tooltip
-			      .html("The position of the data instance is X: " + d[0] + " Y: " + d[1] )
+			      .html(feature_name[i] )
 			      .style("left", (d3.mouse(this)[0]+90) + "px") // It is important to put the +90: other wise the tooltip is exactly where the point is an it creates a weird effect
 			      .style("top", (d3.mouse(this)[1]) + "px")
 			  }
@@ -518,12 +588,205 @@
 			        .attr("y",function(d,i){return y(d);})
 			        .attr("width", function(d) { return x(feature_name[1]) - x(feature_name[0]) -2*rectMargin ; })
 			        .attr("height", function(d) { return height - y(d); })
-			        .style("fill", "#69b3a2")
+			        .style("fill", "#fa8072")
 			        // Show tooltip on hover
 			        .on("mouseover", showTooltip )
 			        .on("mousemove", moveTooltip )
 			        .on("mouseleave", hideTooltip )
 			        //.attr("transform", function(d) { return "translate(" + x(d.x0) + "," + y(d.length) + ")"; })
+		}
+
+		function draw_feature_subspace(data){
+			var margin = {top: 30, right: 30, bottom: 30, left: 30},
+		    width = 350 - margin.left - margin.right,
+		    height = 240 - margin.top - margin.bottom;
+
+		    var radius = 90;
+		    var total = data.length;
+		    var level = 4;
+		    var range_min = d3.min(data);
+		    var range_max = d3.max(data);
+		    var arc = 2 * Math.PI;
+		    var one_piece = arc / total;
+		    var polygons = {webs:[], web_points:[]};
+
+		    for(var k =level; k>0;k--){
+		    	var webs = '', web_points = [];
+		    	var r = radius/level * k;
+		    	for(var i = 0; i<total;i++){
+		    		var x = r * Math.sin(i * one_piece);
+		    		var y = r * Math.cos(i * one_piece);
+		    		webs += x + ',' + y +' ';
+		    		web_points.push({x:x,y:y});
+
+		    	}
+		    polygons.webs.push(webs);
+		    polygons.web_points.push(web_points);
+		    }
+		    //add web
+		    var svg = d3.select("#feature_subspace")
+		    			  .append("svg")
+			    .attr("width", width + margin.left + margin.right)
+			    .attr("height", height + margin.top + margin.bottom)
+			    ;
+			var webs = svg.append("g")
+			    .attr("class","webs")
+			    .attr('transform', "translate(" + (width + margin.left + margin.right)/2 + ',' + (height + margin.top + margin.bottom)/2 + ')');
+			webs.selectAll("polygon")
+				.data(polygons.webs)
+				.enter()
+				.append("polygon")
+				.attr("points",function(d){return d;});
+			//add lines 
+			var lines = svg.append("g")
+							.attr("class", "line")
+							.attr('transform', "translate(" + (width + margin.left + margin.right)/2 + ',' + (height + margin.top + margin.bottom)/2 + ')');
+			lines.selectAll("line")
+					.data(polygons.web_points[0])
+					.enter()
+					.append("line")
+					.attr("x1",0)
+					.attr("y1",0)
+					.attr("x2",function(d){return d.x;})
+					.attr("y2",function(d){return d.y;});
+
+			//calculate axis in web
+			var areas_data = [];
+			var area = '';
+			var points = [];
+			for(var k = 0; k < total; k++){
+				var r = radius * (data[k] - range_min)/(range_max - range_min);
+				var x = r * Math.sin(k * one_piece);
+				var y = r * Math.cos(k * one_piece);
+				area += x +',' + y +' ';
+				points.push({x:x,y:y})
+			}
+			areas_data.push({
+				polygon: area,
+				points: points
+			});
+			//draw data
+			var areas = svg.append("g")
+							.attr("class","areas")
+							.attr('transform', "translate(" + (width + margin.left + margin.right)/2 + ',' + (height + margin.top + margin.bottom)/2 + ')');
+			areas.selectAll("g")
+					.data(areas_data)
+					.enter()
+					.append("g")
+					.attr("id", function(d,i){return "area"+(i+1);});
+			for(var i = 0; i < areas_data.length; i++){
+				var area = areas.select("#area"+(i+1));
+				var area_data = areas_data[i];
+				area.append("polygon")
+					.attr("points", area_data.polygon)
+					.attr("stroke","#fa8072")
+					.attr("fill","#fa8072")
+					.attr("fill-opacity","0.5");
+				var circles = area.append("g");
+				circles.selectAll("circle")
+						.data(area_data.points)
+						.enter()
+						.append("circle")
+						.attr("cx", function(d){return d.x;})
+						.attr("cy", function(d){return d.y;})
+						.attr("r",3)
+						.attr("fill","#ff6347");
+			}
+			//add text
+			var text_points = [];
+			var text_radius = radius + 15;
+			for(var i = 0; i < total; i++){
+				var x = text_radius * Math.sin(i * one_piece);
+				var y = text_radius * Math.cos(i * one_piece);
+				text_points.push({x:x,y:y});
+			}
+			var texts = svg.append("g")
+						.attr('transform', "translate(" + (width + margin.left + margin.right)/2 + ',' + (height + margin.top + margin.bottom)/2 + ')');
+			texts.selectAll("text")
+					.data(text_points)
+					.enter()
+					.append("text")
+					.attr("x", function(d){return d.x;})
+					.attr("y", function(d){return d.y;})
+					.text(function(d,i){return feature_name[i];})
+					.attr("font-size","12px")
+					.attr("fill","white");
+
+
+			
+		}
+
+
+
+
+
+
+		function draw_category_mean(data){
+			// set the dimensions and margins of the graph
+			var margin = {top: 10, right: 20, bottom: 10, left: 30},
+			    width = 300 - margin.left - margin.right,
+			    height = 90 - margin.top - margin.bottom;
+
+			for(var i = 0; i < 4;i++){
+				var id = "category"+String(i);
+				var category = d3.select("#category_list")
+						.append("div")
+						.attr("class","category")
+						.attr("id",id)
+
+				var text1 = category.append("div")
+							.attr("class","category_text")
+							.html("category: c"+String(i))
+							.style("left","10px")
+							.style("top","85px")
+				var text2 = category.append("div")
+							.attr("class","category_text")
+							.html("instance: 9")
+							.style("left","10px")
+							.style("top","98px")
+
+				// append the svg object to the body of the page
+				var svg = category
+				  .append("svg")
+				    .attr("width", width + margin.left + margin.right)
+				    .attr("height", height + margin.top + margin.bottom)
+				  .append("g")
+				    .attr("transform",
+				          "translate(" + margin.left + "," + margin.top + ")");
+
+
+				  // X axis: scale and draw:
+				  var x = d3.scaleBand()
+				      .domain(feature_name)     // can use this instead of 1000 to have the max of data: d3.max(data, function(d) { return +d.price })
+				      .range([0, width]);
+
+				  // Y axis: scale and draw:
+				  var rect_height = Math.max(d3.max(data),Math.abs(d3.min(data)));
+				  var y = d3.scaleLinear()
+				      .range([height, 0]);
+				      y.domain([-rect_height, rect_height]);   // d3.hist has to be called before the Y axis obviously
+				  /*svg.append("g")
+				  	  .attr("class", "axis")
+				      .call(d3.axisLeft(y));*/
+
+
+				  // append the bar rectangles to the svg element
+				  var rectMargin = 4;
+				  svg.selectAll("rect")
+				      .data(data)
+				      .enter()
+				      .append("rect")
+				        .attr("x", function(d,i){return x(feature_name[i]) + rectMargin;})
+				        .attr("y",function(d,i){if(d>0){return y(d);}else{return (height/2)}})
+				        .attr("width", function(d) { return x(feature_name[1]) - x(feature_name[0]) -2*rectMargin ; })
+				        .attr("height", function(d) {if(d>0){return (height/2)-y(d);}else{return y(d)-(height/2);} })
+				        .style("fill", function(d){if(d>0){return "red";}else{return "#4169e1";}})
+				        .style("opacity", 0.7)
+				        // Show tooltip on hover
+			
+				        //.attr("transform", function(d) { return "translate(" + x(d.x0) + "," + y(d.length) + ")"; })
+			}
+	
 		}
 
 
