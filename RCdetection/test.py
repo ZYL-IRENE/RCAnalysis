@@ -6,6 +6,7 @@ import json
 import mymds
 import lof
 import feature_explore
+import category_analysis as ca
 
 
 # open data file
@@ -16,9 +17,7 @@ with open('./static/shuttle20.csv', newline='') as readfile:
     for row in reader:
         # do not read the first row!
         if isFirstLine == 1:
-            tmp1 = map(eval,row)
-            tmp2 = list(tmp1)
-            feature_name = tmp2
+            feature_name = row
             isFirstLine = 0
         else:
         	tmp1 = map(eval,row)
@@ -29,9 +28,10 @@ with open('./static/shuttle20.csv', newline='') as readfile:
 print("data loaded!")
 
 # calculate feature distribution
-(feature_position,feature_position_min,feature_position_max,feature_variance) = feature_explore.feature_analysis(data)
-
-
+(feature_position,feature_position_min,feature_position_max,feature_variance,feature_mean) = feature_explore.feature_analysis(data)
+#print(feature_position)
+#print(feature_position_max)
+print(feature_mean)
 #calculate rare category
 k_list = []
 k_list = lof.initialize_k_list(data)
@@ -40,15 +40,32 @@ benchmark = 1 # the gap between k and RC's size
 l = lof.LOF(data, k_list)
 
 normalized_data_array = np.array(l.instances)
-(data_position, data_position_min, data_position_max) = mymds.get_position(normalized_data_array,2)
-print(data_position)
+(data_position, data_position_min, data_position_max,) = mymds.get_position(normalized_data_array,2)
+#print(data_position)
 
 
+print("start to compute RC")
 
-'''
 rare_centers = lof.outliers(data, k_list)
-print(rare_centers)
+#print(rare_centers)
 
+center = rare_centers[0] 
+center_index = center["index"]
+center_kinf = center["k_inf"]
+# center point and its k-neighbours
+neighbours = lof.get_neighbours(center_kinf, data[center_index], data) 
+# put togather as RC
+category = copy.deepcopy(neighbours)
+category.append(data[center_index])
+#print(category)
+
+category_mean = ca.category_mean_relative(category,feature_mean)
+print(category_mean)
+category_index = []
+for instance in category:
+    category_index.append(data.index(instance))
+print(category_index)
+'''
 while True:
     rare_centers = []
     if len(data) <=3:

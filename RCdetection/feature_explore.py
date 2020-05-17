@@ -7,6 +7,8 @@ import copy
 
 def feature_analysis(data):
     data_array = np.array(data)
+    feature_mean = np.mean(data_array, axis=0)
+    feature_mean = feature_mean.tolist()
     #feature  correlations
     feature_cor = np.corrcoef(data_array.T) 
     feature_distance = 1-abs(feature_cor)
@@ -35,4 +37,4 @@ def feature_analysis(data):
     for feature in normalized_data_array.T:
         feature_variance.append(np.var(feature))
 
-    return feature_position,feature_position_min,feature_position_max,feature_variance
+    return feature_position,feature_position_min,feature_position_max,feature_variance,feature_mean

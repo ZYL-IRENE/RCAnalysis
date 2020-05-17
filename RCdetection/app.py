@@ -61,12 +61,13 @@ def index():
 
     category_mean = ca.category_mean_relative(category,feature_mean)'''
     category_mean = [-3.066666666666663, -0.8555555555555556, -0.8944444444444457, -0.1222222222222222, 3.811111111111117, 5.094444444444445, 2.1611111111111114, -4.916666666666664, -7.033333333333333]
+    category_index = [14, 7, 19, 15, 16, 5, 2, 9, 13]
     print(category_mean)
 
     return_data = {"raw_data": data, "feature_position": feature_position, "feature_position_min": feature_position_min,
                    "feature_position_max": feature_position_max, "feature_variance": feature_variance,
                    "feature_name": feature_name, "data_position": data_position, "data_position_min": data_position_min,
-                   "data_position_max": data_position_max, "category_mean":category_mean}
+                   "data_position_max": data_position_max, "category_mean":category_mean, "category_index": category_index}
 
 
 

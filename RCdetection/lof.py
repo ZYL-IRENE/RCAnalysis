@@ -240,6 +240,7 @@ def outliers(instances, k_list, candidate=None,**kwargs):
     l = LOF(instances, k_list, **kwargs)
     for i,instance in enumerate(candidate):
         #instance = tuple(instance) 
+        print("current:",i)
         (k_inf, min_lof, lof_list) = l.local_outlier_factor_kinf(instance)
         if min_lof > 1:
             confidence = l.confidence(instance, k_inf, min_lof, lof_list)
